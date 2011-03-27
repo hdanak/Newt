@@ -8,14 +8,7 @@ package Regex::Node;
 		bless $self, $class;
 	}
 	sub match {
-		my ($self, $text, $offset) = @_;
-		if (!@{$self->{next}}) {
-			return 0;
-		}
-		my @results = grep {$_ > -1}
-				  map {$_->match($text, $offset)}
-				      @{$self->{next}};
-		return $self->_max(@results);
+		return 0;
 	}
 	sub parent {
 		my ($self, $parent) = @_;
@@ -67,26 +60,31 @@ package Regex::Atom;
 		bless $self, $class;
 	}
 	sub match {
-		my ($self, $text, $offset) = @_;
-		$offset = $offset // 0;
-		if ($self->{atom} eq substr($text, $offset, 1)) {
-			if (!@{$self->{next}}) {
-				return 1;
-			} else {
-				my @results = grep {$_ > -1}
-						  map {$_->match($text, $offset+1)}
-						      @{$self->{next}};
-				if (@results) {
-					return 1 + $self->_max(@results);
-				}
-			}
+		my ($self, $char) = @_;
+		return 1 if $char eq $self->{atom};
+		return -1;
+	}
+1;
+package Regex::Any;
+	our @ISA=('Regex::Node');
+	sub new {
+		my ($class, $nl) = @_;
+		my $self = Regex::Node->new();
+		$self->{nl} = $nl // 1;
+		bless $self, $class;
+	}
+	sub match {
+		my ($self, $char) = @_;
+		if ($self->{nl}) {
+			return 1 if $char;
+		} else {
+			return 1 if $char ne "\n";
 		}
 		return -1;
 	}
 1;
 package Regex::Class;
 	our @ISA=('Regex::Node');
-	my $special_classes = {};
 	sub new {
 		my ($class, $alts, $inv) = @_;
 		my $h = {};
@@ -99,22 +97,10 @@ package Regex::Class;
 		bless $self, $class;
 	}
 	sub match {
-		my ($self, $text, $offset) = @_;
-		$offset = $offset // 0;
-		my $m = defined $self->{alts}->{substr($text, $offset, 1)};
+		my ($self, $char) = @_;
+		my $m = defined $self->{alts}->{$char};
 		$m = !$m if $self->{inv};
-		if ($m) {
-			if (!@{$self->{next}}) {
-				return 1;
-			} else {
-				my @results = grep {$_ > -1}
-						  map {$_->match($text, $offset+1)}
-						      @{$self->{next}};
-				if (@results) {
-					return 1 + $self->_max(@results);
-				}
-			}
-		}
+		return 1 if $m;
 		return -1;
 	}
 	sub alpha {
@@ -145,9 +131,7 @@ package Regex::Class;
 		my ($alts, $inv) = @_;
 		my ($name) = caller;
 		$inv = $inv // 0;
-		$special_classes->{$name} = new Regex::Class($alts, $inv)
-			if not defined $special_classes->{$name};
-		return $special_classes->{$name};
+		return new Regex::Class($alts, $inv)
 	}
 1;
 
@@ -159,7 +143,11 @@ package Regex;
 	
 	use feature 'switch';
 	use feature 'say';
-	
+
+	sub dsay {
+		say @_ if 1;
+	}
+
 	sub new {
 		my ($class, $regex) = @_;
 		my $self = {
@@ -176,6 +164,9 @@ package Regex;
 		for (my $index = 0; $index < length($raw); ++$index) {
 			my $last = $goal->parent;
 			given (substr($raw, $index, 1)) {
+				when ('.') {
+					$last->link(new Regex::Any)->link($goal);
+				}
 				when ('?') {
 					my $next = new Regex::Node;
 					$last->link($next);
@@ -225,28 +216,57 @@ package Regex;
 
 	sub match {
 		my ($self, $text) = @_;
-		my $offset = 0;
 		my $base = $self->{nfa};
-		my @current = ($base);
-		for (0 .. length($text)) {
-			@current = map {
-				$_->match(substr($text, $_, 1));
-				my $x = $_->next;
-				return @$x if ref($x) eq 'ARRAY';
-				return $x
-			} @current;
-
-				foreach (@$next) {
-					push @q, $_;
+		my $start = 0;
+REDO:		my $mark = $start;
+		my $offset = 0;
+		my @next_states = ($base);
+		my @new_states = ();
+		for $offset ($start .. length($text)-1) {
+			my $k = @next_states;
+			for (my $i = 0; $i < $k; $i++) {
+				my $elem = $next_states[$i];
+				my $char = substr($text, $offset, 1);
+				my $match = $elem->match($char);
+				my $next;
+				if ($match < 0) {
+					# ignore the old object
+					dsay "Failed '$char' at offset: $offset start: $start with rule ", ref($elem);
+				} elsif ($match > 0) {
+					# continue the chain
+					dsay "Matched '$char' at offset: $offset start: $start with rule ", ref($elem);
+					$next = $elem->next;
+					if ('ARRAY' eq ref $next) {
+						push @new_states, @$next;
+					} else {
+						push @new_states, $next;
+					}
+				} else {
+					dsay "Zero '$char' at offset: $offset start: $start with rule ", ref($elem);
+					# zero-length, next with same char
+					$next = $elem->next;
+					if ('ARRAY' eq ref $next) {
+						if (!@$next) {
+							$mark = $offset;
+							next;
+						}
+						$k = push @next_states, @$next;
+					} else {
+						$k = push @next_states, $next;
+					}
 				}
 			}
-			if ($base->match($text, $offset) > -1) {
-				return 1;
-			} else {
-				return 0;
+			@next_states = @new_states;
+			@new_states = ();
+			if (!@next_states) {
+				if ($mark == $start) {
+					$start++;
+					goto 'REDO';
+				}
+				last;
 			}
-			$next = $base->next;
 		}
+		return substr($text, $start, $mark - $start);
 	}
 1;
 
@@ -255,9 +275,9 @@ package main;
 
 use Data::Dumper;
 
-my $re = new Regex(make_patho(20));
+my $re = new Regex('a.*');
 #print Dumper $re;
-say $re->match('a'x20);
+say $re->match('abcd');
 
 sub make_patho {
 	my ($n) = @_;
