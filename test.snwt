@@ -1,0 +1,7 @@
+
+print("hi")
+
+sub print($x) {
+}
+
+my $x = add(1, 2)
