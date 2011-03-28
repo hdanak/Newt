@@ -12,6 +12,9 @@ package Regex::Node;
 	sub match {
 		return 0;
 	}
+	sub length {
+		return 0;
+	}
 	sub parents {
 		my ($self) = @_;
 		return @{$self->{parent}};
@@ -106,6 +109,18 @@ package Regex::Node;
 		}
 		return @node;
 	}
+	sub pp {
+		my ($self) = @_;
+		return '';
+	}
+	sub qid {
+		my ($self, $qid) = @_;
+		if (defined $qid) {
+			$self->{qid} = $qid;
+		} else {
+			return $self->{qid};
+		}
+	}
 	sub _list_minus {
 		my ($a, $b) = @_;
 		my @res = grep {
@@ -132,6 +147,13 @@ package Regex::Atom;
 		return 1 if $char eq $self->{atom};
 		return -1;
 	}
+	sub length {
+		return 1;
+	}
+	sub pp {
+		my ($self) = @_;
+		return "Atom('$self->{atom}')";
+	}
 1;
 package Regex::Any;
 	our @ISA=('Regex::Node');
@@ -149,6 +171,13 @@ package Regex::Any;
 			return 1 if $char ne "\n";
 		}
 		return -1;
+	}
+	sub length {
+		return 1;
+	}
+	sub pp {
+		my ($self) = @_;
+		return "Any";
 	}
 1;
 package Regex::Class;
@@ -170,6 +199,13 @@ package Regex::Class;
 		$m = !$m if $self->{inv};
 		return 1 if $m;
 		return -1;
+	}
+	sub length {
+		return 1;
+	}
+	sub pp {
+		my ($self) = @_;
+		return "Class";
 	}
 	sub alpha {
 		my ($inv) = @_;
@@ -204,17 +240,46 @@ package Regex::Class;
 1;
 package Regex::Start;
 	our @ISA=('Regex::Node');
+	sub new {
+		my ($class, $name) = @_;
+		my $self = Regex::Node->new();
+		$self->{name} = $name;
+		bless $self, $class;
+	}
+	sub name {
+		my ($self) = @_;
+		return $self->{name};
+	}
+	sub pp {
+		my ($self) = @_;
+		return "Start('$self->{name}')";
+	}
 1;
 package Regex::End;
 	our @ISA=('Regex::Node');
+	sub new {
+		my ($class, $name) = @_;
+		my $self = Regex::Node->new();
+		$self->{name} = $name;
+		bless $self, $class;
+	}
+	sub name {
+		my ($self) = @_;
+		return $self->{name};
+	}
+	sub pp {
+		my ($self) = @_;
+		return "End('$self->{name}')";
+	}
 1;
 
 package Regex::Feeder;
 	sub new {
-		my ($class, $text) = @_;
+		my ($class, $text, $offset) = @_;
 		my $self = {
 			text	=> $text,
 			index	=> 0,
+			offset	=> $offset // 0,
 		};
 		bless $self, $class;
 	}
@@ -222,16 +287,20 @@ package Regex::Feeder;
 		my ($self) = @_;
 		if ($self->{index} >= length($self->{text})) {
 			$self->{index} = length($self->{text});
-			return -1;
+			return undef;
 		}
 		return substr($self->{text}, $self->{index}++, 1);
 	}
 	sub put {
 		my ($self, $char) = @_;
-		if ($self->{index} <= 0) {
-			$self->{index} = 0;
-			return -1;
+		if ($self->{index} <= $self->{offset}) {
+			$self->{index} = $self->{offset};
+			die "Put more than taken from feeder";
 		}
+	}
+	sub index {
+		my ($self) = @_;
+		return $self->{index};
 	}
 1;
 
@@ -251,16 +320,21 @@ package Regex;
 	sub new {
 		my ($class, $regex) = @_;
 		my $self = {
-			nfa	=> _create_nfa($regex)
+			nfa	=> undef,
+			captures=> undef,
 		};
+		$self->_create_nfa($regex):
 		bless $self, $class;
 	}
 	
 	sub _create_nfa {
-		my ($raw) = @_;
-		my $base = new Regex::Start;
-		my $goal = new Regex::End;
+		my ($self, $raw) = @_;
+		my $base = new Regex::Start(0);
+		my $goal = new Regex::End(0);
 		$base->link($goal);
+		my @cap_stack;
+		my $cap_count = 1;
+		my @captures;
 		for (my $index = 0; $index < length($raw); ++$index) {
 			given (substr($raw, $index, 1)) {
 				when ('.') {
@@ -268,7 +342,10 @@ package Regex;
 					$goal->prepend($node);
 				}
 				when ('?') {
-					$goal->parent(map {$_->parents} $goal->parents);
+					my $node = new Regex::Node;
+					map {$_->link($node)}
+						map {$_->parents} $goal->parents;
+					$goal->prepend($node);
 				}
 				when ('*') {
 					foreach my $l1 ($goal->parents) {
@@ -285,13 +362,27 @@ package Regex;
 					$goal->prepend($node);
 					++$index;
 				}
+				when ('[') {
+				}
+				when ('(') {
+					push @cap_stack, $cap_count;
+					push @captures, $goal->prepend(new Regex::Start($cap_count));
+					$cap_count++;
+				}
+				when (')') {
+					$goal->prepend(new Regex::End(pop @cap_stack));
+				}
+				when ('|') {
+				}
 				default {
 					my $node = new Regex::Atom($_);
 					$goal->prepend($node);
 				}
 			}
 		}
-		return $base;
+		die "Unballanced parens in regex." if @cap_stack;
+		$self->{nfa} = $base;
+		$self->{captures} = \@captures;
 	}
 	
 	sub _lookup_spec {
@@ -316,49 +407,99 @@ package Regex;
 
 	sub match {
 		my ($self, $text) = @_;
-		my $base = $self->{nfa};
-		my $start = 0;
-REDO:		my $mark = $start;
-		my $offset = 0;
-		my @next_states = $base->links;
+		my @next_states = ($self->{nfa});
 		my @new_states = ();
-		for $offset ($start .. length($text)-1) {
-			my $k = @next_states;
-			for (my $i = 0; $i < $k; $i++) {
-				my $elem = $next_states[$i];
-				my $char = substr($text, $offset, 1);
+		my $start = 0;
+		my $end = 0;
+
+		until ($end > $start) {
+			my $feeder = new Regex::Feeder($text, $start++);
+			my $char = $feeder->take;
+			unless (defined $char) {
+				if (grep {$_->isa('Regex::End')} @next_states) {
+					$end = $feeder->index;
+				}
+				last;
+			}
+			while (@next_states) {
+				my $elem = shift @next_states;
 				my $match = $elem->match($char);
 				my @next;
 				if ($match < 0) {
 					# ignore the old object
-					dsay "Failed '$char' at offset: $offset start: $start with rule ", ref($elem);
+					dsay "Failed '$char' at index: ",
+					     $feeder->index,
+					     " start: $start with rule ",
+					     ref($elem);
 				} elsif ($match > 0) {
 					# continue the chain
-					dsay "Matched '$char' at offset: $offset start: $start with rule ", ref($elem);
+					dsay "Matched '$char' at index: ",
+					     $feeder->index,
+					     " start: $start with rule ",
+					     ref($elem);
 					@next = $elem->links;
 					push @new_states, @next;
 				} else {
-					dsay "Zero '$char' at offset: $offset start: $start with rule ", ref($elem);
 					# zero-length, next with same char
+					dsay "Zero '$char' at index: ",
+					     $feeder->index,
+					     " start: $start with rule ",
+					     ref($elem);
 					@next = $elem->links;
 					if (!@next) {
-						$mark = $offset;
+						$end = $feeder->index;
 						next;
 					}
-					$k = push @next_states, @next;
+					push @next_states, @next;
 				}
 			}
 			@next_states = @new_states;
 			@new_states = ();
-			if (!@next_states) {
-				if ($mark == $start) {
-					$start++;
-					goto 'REDO';
+			last if (!@next_states);
+		}
+		if ($end > $start) {
+			return substr($text, $start, $end-$start);
+		} else {
+			return 0;
+		}
+	}
+	sub _submatch {
+		my ($self, $start, $feeder) = @_;
+		my $queue = [];
+		my $qid = $start->name;
+		_enqueue($queue, $start->links, $qid);
+		my $char;
+		while ($char = $feeder->take) {
+			while (@$queue) {
+				$_ = shift @$queue;
+				if (ref($_) eq 'Regex::Start') {
+					unless ($self->_submatch($_, $feeder)) {
+						return 0;
+					}
+				} elsif (ref($_) eq 'Regex::End') {
+					return 1;
+				} elsif ($_->length == 0) {
+					_enqueue($queue, $_->links, $qid);
+				} else {
+					_enqueue($queue, $_->links, $qid)
+						if $_->match($char) > 0;
 				}
-				last;
 			}
 		}
-		return substr($text, $start, $mark - $start);
+		if (!defined($char)) {
+			return 1 if grep {ref($_) eq 'Regex::End'} @$queue;
+			return 0;
+		}
+		return !!$char;
+	}
+	sub _enqueue {
+		my ($queue, @elems, $qid) = @_;
+		foreach (@elems) {
+			unless ($_->qid eq $qid) {
+				$_->qid($qid);
+				push @$queue, $_;
+			}
+		}
 	}
 	sub to_dot {
 		my ($self) = @_;
@@ -373,8 +514,7 @@ REDO:		my $mark = $start;
 			} else {
 				$chalk{$elem} = 1;
 			}
-			my $label = ref $elem;
-			$label .= "('$elem->{atom}')" if $label eq 'Regex::Atom';
+			my $label = $elem->pp;
 			$g->add_node($elem, label => $label);
 			my @next = $elem->links;
 			push @q, @next;
@@ -392,13 +532,13 @@ package main;
 
 use Data::Dumper;
 
-my $re = new Regex(make_patho(5));
+my $re = new Regex('a?b?c');
 open (my $df, '> test.dot');
 print $df $re->to_dot;
 close ($df);
 system("dot -Tps test.dot -o outfile.ps");
 #print Dumper $re;
-say $re->match('aaaaa');
+#say $re->match('a'x10);
 
 sub make_patho {
 	my ($n) = @_;
