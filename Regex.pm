@@ -317,22 +317,19 @@ package Regex;
 	sub new {
 		my ($class, $regex) = @_;
 		my $self = {
-			nfa	=> undef,
-			captures=> undef,
+			nfa	=> _create_nfa($regex),
+			captures=> {},
 		};
 		bless $self, $class;
-		$self->_create_nfa($regex);
-		return $self;
 	}
 	
 	sub _create_nfa {
-		my ($self, $raw) = @_;
+		my ($raw) = @_;
 		my $base = new Regex::Start(0);
 		my $goal = new Regex::End(0);
 		$base->link($goal);
 		my @cap_stack;
 		my $cap_count = 1;
-		my @captures;
 		for (my $index = 0; $index < length($raw); ++$index) {
 			given (substr($raw, $index, 1)) {
 				when ('.') {
@@ -341,19 +338,21 @@ package Regex;
 				}
 				when ('?') {
 					my $node = new Regex::Node;
-					map {$_->link($node)}
-						map {$_->parents} $goal->parents;
+					$node->parent(map {$_->parents} $goal->parents);
 					$goal->prepend($node);
 				}
 				when ('*') {
-					foreach my $l1 ($goal->parents) {
-						$l1->relink($l1);
-						foreach my $l2 ($l1->parents) {
-							$l2->link($goal);
-						}
-					}
+					my $node = new Regex::Node;
+					my @last = $goal->parents;
+					$goal->prepend($node);
+					$node->parent(map {$_->parents} @last);
+					$node->link(@last);
 				}
 				when ('+') {
+					my $node = new Regex::Node;
+					my @last = $goal->parents;
+					$goal->prepend($node);
+					$node->link(@last);
 				}
 				when ("\\") {
 					my $node = _lookup_spec(substr($raw, $index, 2));
@@ -364,11 +363,15 @@ package Regex;
 				}
 				when ('(') {
 					push @cap_stack, $cap_count;
-					push @captures, $goal->prepend(new Regex::Start($cap_count));
+					print @cap_stack, "\n";
+					$goal->prepend(new Regex::Start($cap_count));
 					$cap_count++;
 				}
 				when (')') {
-					$goal->prepend(new Regex::End(pop @cap_stack));
+					my $cap = pop @cap_stack;
+					print @cap_stack, "\n";
+					die "Unballanced parens in regex." if not defined $cap;
+					$goal->prepend(new Regex::End($cap));
 				}
 				when ('|') {
 				}
@@ -379,8 +382,7 @@ package Regex;
 			}
 		}
 		die "Unballanced parens in regex." if @cap_stack;
-		$self->{nfa} = $base;
-		$self->{captures} = \@captures;
+		return $base;
 	}
 	
 	sub _lookup_spec {
@@ -425,9 +427,12 @@ package Regex;
 				$_->set_qid(undef);
 				if (ref($_) eq 'Regex::Start') {
 					$feeder->give($char);
-					unless ($self->_submatch($_, $feeder)) {
-						return 0;
-					}
+					my $old_feeder_index = $feeder->{index};
+					return 0 unless $self->_submatch($_, $feeder);
+					$self->{captures}->{$_->name} = [
+						$old_feeder_index,
+						$feeder->{index} - $old_feeder_index,
+					];
 				} elsif (ref($_) eq 'Regex::End') {
 					$feeder->give($char);
 					return 1;
@@ -488,13 +493,14 @@ package main;
 
 use Data::Dumper;
 
-my $re = new Regex('aaaa');
+my $re = new Regex('a*.d*');
 open (my $df, '> test.dot');
 print $df $re->to_dot;
 close ($df);
 system("dot -Tps test.dot -o outfile.ps");
 #print Dumper $re;
-say $re->match('bbaaaa');
+say $re->match('acdddddde');
+print Dumper $re->{captures};
 
 sub make_patho {
 	my ($n) = @_;
