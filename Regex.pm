@@ -113,13 +113,13 @@ package Regex::Node;
 		my ($self) = @_;
 		return '';
 	}
-	sub qid {
+	sub get_qid {
+		my ($self) = @_;
+		return $self->{qid};
+	}
+	sub set_qid {
 		my ($self, $qid) = @_;
-		if (defined $qid) {
-			$self->{qid} = $qid;
-		} else {
-			return $self->{qid};
-		}
+		$self->{qid} = $qid;
 	}
 	sub _list_minus {
 		my ($a, $b) = @_;
@@ -278,7 +278,7 @@ package Regex::Feeder;
 		my ($class, $text, $offset) = @_;
 		my $self = {
 			text	=> $text,
-			index	=> 0,
+			index	=> $offset // 0,
 			offset	=> $offset // 0,
 		};
 		bless $self, $class;
@@ -291,16 +291,17 @@ package Regex::Feeder;
 		}
 		return substr($self->{text}, $self->{index}++, 1);
 	}
-	sub put {
+	sub give {
 		my ($self, $char) = @_;
 		if ($self->{index} <= $self->{offset}) {
 			$self->{index} = $self->{offset};
 			die "Put more than taken from feeder";
 		}
+		--$self->{index};
 	}
-	sub index {
+	sub distance {
 		my ($self) = @_;
-		return $self->{index};
+		return $self->{index} - $self->{offset};
 	}
 1;
 
@@ -313,18 +314,15 @@ package Regex;
 	use feature 'switch';
 	use feature 'say';
 
-	sub dsay {
-		say @_ if 0;
-	}
-
 	sub new {
 		my ($class, $regex) = @_;
 		my $self = {
 			nfa	=> undef,
 			captures=> undef,
 		};
-		$self->_create_nfa($regex):
 		bless $self, $class;
+		$self->_create_nfa($regex);
+		return $self;
 	}
 	
 	sub _create_nfa {
@@ -407,84 +405,42 @@ package Regex;
 
 	sub match {
 		my ($self, $text) = @_;
-		my @next_states = ($self->{nfa});
-		my @new_states = ();
-		my $start = 0;
-		my $end = 0;
-
-		until ($end > $start) {
-			my $feeder = new Regex::Feeder($text, $start++);
-			my $char = $feeder->take;
-			unless (defined $char) {
-				if (grep {$_->isa('Regex::End')} @next_states) {
-					$end = $feeder->index;
-				}
-				last;
+		for my $start (0 .. length($text)) {
+			my $feeder = new Regex::Feeder($text, $start);
+			if ($self->_submatch($self->{nfa}, $feeder)) {
+				return substr($text, $start, $feeder->distance);
 			}
-			while (@next_states) {
-				my $elem = shift @next_states;
-				my $match = $elem->match($char);
-				my @next;
-				if ($match < 0) {
-					# ignore the old object
-					dsay "Failed '$char' at index: ",
-					     $feeder->index,
-					     " start: $start with rule ",
-					     ref($elem);
-				} elsif ($match > 0) {
-					# continue the chain
-					dsay "Matched '$char' at index: ",
-					     $feeder->index,
-					     " start: $start with rule ",
-					     ref($elem);
-					@next = $elem->links;
-					push @new_states, @next;
-				} else {
-					# zero-length, next with same char
-					dsay "Zero '$char' at index: ",
-					     $feeder->index,
-					     " start: $start with rule ",
-					     ref($elem);
-					@next = $elem->links;
-					if (!@next) {
-						$end = $feeder->index;
-						next;
-					}
-					push @next_states, @next;
-				}
-			}
-			@next_states = @new_states;
-			@new_states = ();
-			last if (!@next_states);
 		}
-		if ($end > $start) {
-			return substr($text, $start, $end-$start);
-		} else {
-			return 0;
-		}
+		return 0;
 	}
 	sub _submatch {
 		my ($self, $start, $feeder) = @_;
 		my $queue = [];
-		my $qid = $start->name;
-		_enqueue($queue, $start->links, $qid);
+		my $next = [];
+		_enqueue($queue, $start->links);
 		my $char;
-		while ($char = $feeder->take) {
+		while (defined($char = $feeder->take)) {
 			while (@$queue) {
 				$_ = shift @$queue;
+				$_->set_qid(undef);
 				if (ref($_) eq 'Regex::Start') {
+					$feeder->give($char);
 					unless ($self->_submatch($_, $feeder)) {
 						return 0;
 					}
 				} elsif (ref($_) eq 'Regex::End') {
+					$feeder->give($char);
 					return 1;
 				} elsif ($_->length == 0) {
-					_enqueue($queue, $_->links, $qid);
+					_enqueue($queue, $_->links);
 				} else {
-					_enqueue($queue, $_->links, $qid)
+					_enqueue($next, $_->links)
 						if $_->match($char) > 0;
 				}
 			}
+			$queue = $next;
+			$next = [];
+			return 0 unless @$queue;
 		}
 		if (!defined($char)) {
 			return 1 if grep {ref($_) eq 'Regex::End'} @$queue;
@@ -493,10 +449,10 @@ package Regex;
 		return !!$char;
 	}
 	sub _enqueue {
-		my ($queue, @elems, $qid) = @_;
+		my ($queue, @elems) = @_;
 		foreach (@elems) {
-			unless ($_->qid eq $qid) {
-				$_->qid($qid);
+			unless (defined($_->get_qid) && $_->get_qid == $queue) {
+				$_->set_qid($queue);
 				push @$queue, $_;
 			}
 		}
@@ -532,13 +488,13 @@ package main;
 
 use Data::Dumper;
 
-my $re = new Regex('a?b?c');
+my $re = new Regex('aaaa');
 open (my $df, '> test.dot');
 print $df $re->to_dot;
 close ($df);
 system("dot -Tps test.dot -o outfile.ps");
 #print Dumper $re;
-#say $re->match('a'x10);
+say $re->match('bbaaaa');
 
 sub make_patho {
 	my ($n) = @_;
