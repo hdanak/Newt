@@ -1,4 +1,3 @@
-#!/usr/bin/env perl
 
 package Parser;
 
@@ -7,12 +6,31 @@ use warnings;
 use feature 'switch';
 use feature 'say';
 
-use ASTNode;
+use Grammar;
 
 use Data::Dumper;
 
 sub new {
-	my ($class, $filename) = @_;
+	my ($class, $grammar) = @_;
+	die "No grammar provided to Parser.\n"
+		unless defined $grammar;
+	die "Grammar doesn't containt TOP rule.\n"
+		unless defined $grammar->{TOP};
+	my $self = {
+		grammar	=> Grammar::sanitize($grammar),
+		src	=> undef,
+		lnum	=> 0,
+		cnum	=> 0,
+		state_stack => []
+	};
+	#print Dumper $self->{grammar};
+
+	bless $self, $class;
+}
+
+sub parse {
+	my ($self, $filename) = @_;
+
 	die "No file provided to Parser.\n"
 		unless defined $filename;
 	open (my $fh, '<', $filename)
@@ -20,117 +38,117 @@ sub new {
 	my @file_contents = <$fh>;
 	close $fh;
 	my $file_text = join '', @file_contents;
-	$file_text =~ s/\n//g;
-	my $self = {
-		src	=> $file_text,
-		lnum	=> 0,
-		cnum	=> 0,
-	};
+	$self->{src} = $file_text;
 
-	bless $self, $class;
+	my $syntax_tree = $self->_process_rule($self->{grammar}->{TOP});
+	if ($syntax_tree == 0) {
+		my $ecnum = 0;
+		my $eline = $self->{lnum}+1;
+		do {
+			last if substr($self->{src},$self->{cnum}, -1*$ecnum) eq "\n";
+		} while ($ecnum++);
+		die "Syntax error on line $eline, char $ecnum.\n";
+	}
+	print Dumper $syntax_tree;
 }
 
-sub parse {
-	my ($self) = @_;
-
-	while ($self->{src}) {
-		my $tok;
-		if ($tok = ($self->_next_call
-			 || $self->_next_sub
-			 || $self->_next_declr
-			 || $self->_next_expr)) {
-			print Dumper $tok;
-		}
-		else {
-			die "Typo somewhere...\n";
-		}
-	}
-}
-
-sub _next_body {
-	my ($self) = @_;
-	my $node;
-	if ($node = ($self->_next_call
-		  || $self->_next_sub
-		  || $self->_next_declr
-		  || $self->_next_expr)) {
-		return $ast_node;
-	}
-	else {
-		return 0;
-	}
-}
-
-sub _next_call {
-	my ($self) = @_;
-	if (my $tok = $self->_next_tok('\w+\(')) {
-		my ($sub_name) = $tok =~ /(\w+)/;
-		my @arg_list = ();
-		while ($tok = $self->_next_tok('[^,)]*')) {
-			push @arg_list, $tok;
-			if ($self->_next_tok(',')) {
-				next;
-			} elsif ($self->_next_tok('\)')) {
-				last;
+sub _process_rule {
+	my ($self, $rule) = @_;
+	die "Unsanitized rule at "
+		if ref($rule) ne 'Grammar::Node' && not defined $self->{grammar}->{$rule};
+	$rule = $self->{grammar}->{$rule} if ref($rule) eq '';
+	given ($rule->{type}) {
+		when ('TERM') {
+			if ($_ = $self->_next_tok($rule->{val})) {
+				return $_;
+			} else {
+				return 0;
 			}
 		}
-		return new ASTNode(type	=> 'call',
-				   sub	=> $sub_name,
-				   args => \@arg_list);
-	} else {
-		return 0;
+		when ('RULE') {
+			if ($_ = $self->_process_rule($rule->{name})) {
+				return $_;
+			} else {
+				return 0;
+			}
+		}
+		when ('RE') {
+			if ($self->_next_tok($rule->{pattern})) {
+				return $_;
+			} else {
+				return 0;
+			}
+		}
+		when ('AND') {
+			my @list = ();
+			for my $elem (@{$rule->{list}}) {
+				if ($_ = $self->_process_rule($elem)) {
+					push @list, $_;
+				} else {
+					return 0;
+				}
+			}
+			return \@list;
+		}
+		when ('OR') {
+			for my $elem (@{$rule->{list}}) {
+				$self->_save_state;
+				if ($_ = $self->_process_rule($elem)) {
+					$self->_pop_state;
+					return $_;
+				} elsif( \$elem != \$rule->{list}->[-1] ) {
+					$self->_restore_state;
+				}
+			}
+			return 0;
+		}
+		when ('LIST') {
+			my @list = ();
+			push @list, $self->_process_rule($rule->{name});
+			while ($self->_process_rule($rule->{comma})) {
+				push @list, $self->_process_rule($rule->{name});
+			}
+			return \@list;
+		}
 	}
+}
+
+sub _save_state {
+	my ($self) = @_;
+	push @{$self->{state_stack}}, [
+		$self->{lnum},
+		$self->{cnum},
+	];
+}
+
+sub _restore_state {
+	my ($self) = @_;
+	(	$self->{lnum},
+		$self->{cnum},
+	) = @{pop @{$self->{state_stack}}};
+}
+
+sub _pop_state {
+	my ($self) = @_;
+	pop @{$self->{state_stack}};
 }
 
 sub _next_tok {
 	my ($self, $pattern) = @_;
-	say caller;
+	while (substr($self->{src}, $self->{cnum}, 1) eq "\n") {
+		$self->{cnum}++;
+		$self->{lnum}++;
+	}
 	$pattern = $pattern // '\w+';
-	$pattern = '^('.$pattern.')(.*)$';
+	$pattern = '\G('.$pattern.')';
 	if ($self->{src} =~ $pattern) {
-		$self->{src} = $2;
-		return $1;
+		my $out = $1;
+		$self->{cnum} += length($1);
+		$self->{lnum} += $out =~ tr/\n//;
+		return $out;
 	} else {
 		return 0;
 	}
 }
 
-1;
-
-package Grammar;
-
-our $grammar = {
-	TOP	=> '*body',
-	body	=> OR('*sub', '*declr', '*expr'),
-	expr	=> OR('*call'),
-	call	=> [RE('\w+'), RE('('), LIST('*expr', ','), RE(')')],
-	sub	=> ['sub', '*ident', '{', '*body', '}'],
-	declr	=> ['my', '*var', OR(['=', '*expr'], '')],
-	ident	=> RE('\w+'),
-	var	=> RE('\$\w+'),
-};
-
-sub OR {
-	my $self = \@_;
-	return {
-		type	=> 'OR',
-		list	=> \@_,
-	};
-}
-
-sub RE {
-	return {
-		type	=> 'RE',
-		pattern	=> shift,
-	};
-}
-
-sub LIST {
-	return {
-		type	=> 'LIST',
-		value	=> shift,
-		comma	=> shift,
-	};
-}
-
-1;
+1

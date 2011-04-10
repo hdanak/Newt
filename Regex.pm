@@ -2,10 +2,11 @@ package Regex::Node;
 	use strict;
 	use warnings;
 	sub new {
-		my ($class) = @_;
+		my ($class, $context) = @_;
 		my $self = {
 			next	=> [],
 			parent	=> [],
+			context	=> $context,
 		};
 		bless $self, $class;
 	}
@@ -129,16 +130,15 @@ package Regex::Node;
 		} @$a;
 		return \@res;
 	}
-
 1;
 package Regex::Atom;
 	our @ISA=('Regex::Node');
 	sub new {
-		my ($class, $atom) = @_;
+		my ($class, $atom, $context) = @_;
 		die "Incorrect input to Regex::Atom.\n"
 			if length($atom) > 1 && substr($atom, 0, 1) ne "\\";
 
-		my $self = Regex::Node->new();
+		my $self = Regex::Node->new($context);
 		$self->{atom} = $atom;
 		bless $self, $class;
 	}
@@ -158,8 +158,8 @@ package Regex::Atom;
 package Regex::Any;
 	our @ISA=('Regex::Node');
 	sub new {
-		my ($class, $nl) = @_;
-		my $self = Regex::Node->new();
+		my ($class, $nl, $context) = @_;
+		my $self = Regex::Node->new($context);
 		$self->{nl} = $nl // 1;
 		bless $self, $class;
 	}
@@ -183,12 +183,12 @@ package Regex::Any;
 package Regex::Class;
 	our @ISA=('Regex::Node');
 	sub new {
-		my ($class, $alts, $inv) = @_;
+		my ($class, $alts, $context, $inv) = @_;
 		my $h = {};
 		foreach (@$alts) {
 			$h->{$_} = 1;
 		}
-		my $self = Regex::Node->new();
+		my $self = Regex::Node->new($context);
 		$self->{alts} = $h;
 		$self->{inv} = $inv // 0;
 		bless $self, $class;
@@ -306,7 +306,6 @@ package Regex::Feeder;
 1;
 
 package Regex;
-
 	use strict;
 	use warnings;
 	use Data::Dumper;
@@ -493,7 +492,7 @@ package main;
 
 use Data::Dumper;
 
-my $re = new Regex('a*.d*');
+my $re = new Regex('aaa?abc.d');
 open (my $df, '> test.dot');
 print $df $re->to_dot;
 close ($df);
