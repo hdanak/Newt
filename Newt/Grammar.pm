@@ -1,34 +1,34 @@
+package Grammar;
 
-package Parser;
+use Modern::Perl;
+use Module::Pluggable search_path   => qw| Newt::Grammar::Node |,
+                      sub_name      => 'node_types';
 
-use strict;
-use warnings;
-use feature 'switch';
-use feature 'say';
-
-use Grammar;
-
-use Data::Dumper;
 
 sub new {
-	my ($class, $grammar) = @_;
+	my ($class, $rules) = @_;
+    $rules = \%{@_[1 .. $#@_]} if 'HASH' ne ref $rules;
 	die "No grammar provided to Parser.\n"
-		unless defined $grammar;
-	die "Grammar doesn't containt TOP rule.\n"
-		unless defined $grammar->{TOP};
-	my $self = {
-		grammar	=> Grammar::sanitize($grammar),
-		src	=> undef,
-		lnum	=> 0,
-		cnum	=> 0,
-		state_stack => []
-	};
-	#print Dumper $self->{grammar};
-
-	bless $self, $class;
+		unless defined $rules;
+	bless {
+        map {
+            $_ => $class->convert($$rules{$_})
+        } keys %$rules
+    }, $class
 }
 
-sub parse {
+sub convert {
+    my ($class, $struct) = @_;
+    for my $node_type($class->node_types) {
+        if (my $node = $node_type->convert($struct)) {
+            return $node;
+        }
+    }
+}
+
+## TODO: Refactor the following into Node classes
+
+sub parse_file {
 	my ($self, $filename) = @_;
 
 	die "No file provided to Parser.\n"
@@ -113,42 +113,5 @@ sub _process_rule {
 	}
 }
 
-sub _save_state {
-	my ($self) = @_;
-	push @{$self->{state_stack}}, [
-		$self->{lnum},
-		$self->{cnum},
-	];
-}
-
-sub _restore_state {
-	my ($self) = @_;
-	(	$self->{lnum},
-		$self->{cnum},
-	) = @{pop @{$self->{state_stack}}};
-}
-
-sub _pop_state {
-	my ($self) = @_;
-	pop @{$self->{state_stack}};
-}
-
-sub _next_tok {
-	my ($self, $pattern) = @_;
-	while (substr($self->{src}, $self->{cnum}, 1) eq "\n") {
-		$self->{cnum}++;
-		$self->{lnum}++;
-	}
-	$pattern = $pattern // '\w+';
-	$pattern = '\G('.$pattern.')';
-	if ($self->{src} =~ $pattern) {
-		my $out = $1;
-		$self->{cnum} += length($1);
-		$self->{lnum} += $out =~ tr/\n//;
-		return $out;
-	} else {
-		return 0;
-	}
-}
 
 1
