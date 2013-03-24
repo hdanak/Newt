@@ -1,8 +1,14 @@
-package Newt;
+package Language::Newt;
 
 use Modern::Perl;
 use Data::Dumper;
 use Newt::Grammar;
+
+=head1 SYNOPSIS
+
+    ...
+
+=cut
 
 our $grammar = Newt::Grammar->new {
     body    => Repeat(0)->(\q<expr>),

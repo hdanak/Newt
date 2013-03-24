@@ -1,0 +1,105 @@
+%env-config
+@function-wrapper
+$data
+
+# JSON
+Map: {
+    k1: v,
+    k2: v,
+    ...
+}
+List: [
+    v1,
+    v2,
+    ...
+]
+Table: [
+    { k1: v1, k2: v1, ... },
+    { k1: v2, k2: v2, ... },
+    ...
+]
+# YAML
+Map:
+---
+k1: v
+k2: v
+...
+List:
+---
+- v1
+- v2
+...
+Table
+---
+-
+  k1: v1
+  k2: v1
+-
+  k1: v2
+  k2: v2
+...
+# XML
+Map:
+<map>
+    <record key="k1">v</record>
+    <record key="k2">v</record>
+    ...
+</map>
+List:
+<list>
+    <item i=0>v1</item>
+    <item i=1>v2</item>
+    ...
+</list>
+Table:
+<table>
+    <record>
+        <field key="k1">v1</field>
+        <field key="k2">v1</field>
+    </record>
+    <record>
+        <field key="k1">v2</field>
+        <field key="k2">v2</field>
+    </record>
+    ...
+</table>
+<alt_table>
+    <record k1="v1" k2="v1" />
+    <record k1="v2" k2="v2" />
+    ...
+</alt_table>
+# SDL
+Map:
+map k1="v" k2="v"
+List:
+list "v1" "v2"
+Table:
+table {
+    record {
+        field "v1" key="k1"
+        field "v1" key="k2"
+    }
+    record {
+        field "v1" key="k1"
+        field "v1" key="k2"
+    }
+    ...
+}
+alt_table {
+    record k1="v1" k2="v1"
+    record k1="v2" k2="v2"
+    ...
+}
+
+# components
+JSON/YAML:
+    map, list
+XML:
+    element:  attributes, children
+SDL:
+    element:  values, attributes, children
+
+# fundamentals
+Operation: Map over List or Set
+
+@data // $.score > 2 \\ $(.name, .score)

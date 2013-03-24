@@ -1,0 +1,26 @@
+
+if /(\w+): (\d+)/ {
+    my $x = 2;
+    $1 + $2
+} else {
+}
+
+with ($1, $2, $3, $4) {
+    when (1, 2, 3, 4) {
+    } or if ($1 && $2) || ($3 && $4) {
+    }
+}
+
+if ($1, $2, $3, $4) {
+    when (1, 2, 3, 4) {
+    } or if ($1 && $2) || ($3 && $4) {
+    }
+} or if () {
+} or if () {
+} else {
+}
+
+# how are 'if' and 'with' different?
+# should there be a switch? (for efficiency)
+# \_ no, use hashmap lookup instead:
+#       { condA => resA, condB => resB ... }->{test_val}

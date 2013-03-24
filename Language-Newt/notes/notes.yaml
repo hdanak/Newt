@@ -1,0 +1,730 @@
+---
+- |-
+  quoting ideas:
+  `[ a b c d ] => ('a', 'b', 'c', 'd')
+  ($.split()) `{ 1 2 3 4 }
+
+  pattern format can be used for parameter list:
+  func f ($, $, $) {
+      $1 * $2 + $3
+  }
+- |-
+  $a = (
+      { b: () }, { b: () }
+  )
+  $a.@.b.append(1)
+  $a.@[0..1].b.append(1)
+  $a = (
+      b: (
+          1, 2, 3
+      )
+  )
+  a.@b[0..1] + 1 # a = ( b: ( 2, 3, 3) )
+  a.b.length()
+  b_push = a.b.$push
+  b_push 10
+
+  $a.push item
+  { $.push item } a
+  { $x.push item }::(@ -> ())
+- |-
+  {
+      $x = 3
+      inc := x += 3
+  }
+  f($x :: Person :: $.name.last == "Albert") {
+      $x.name.first
+  }
+  html = {
+      head => {
+          title => "Hello World!"
+          link (src: "") => {
+          }
+      }
+  }
+- |-
+  Point-free composition rather than '$_' like in Perl. For example:
+  map { ucfirst } @words;
+
+  Another way of looking at it is that all expressions are actually functions as well:
+  map {f} @list
+   is the same as
+  map {f($_)} @list
+   and
+  func X (a, b) {
+      @_.0 + @_.1
+  # same as
+      %_.a + %_.b
+  # same as
+      a + b
+  # same as (?)
+      $1 + $2
+  }
+  How about the '.' operator? If it depends on the sigil, then this point-free syntax breaks down. In general, how can we reconsile context (as in Perl) and sigils with uniform syntax?
+
+  One thought: (@ . $)
+  In general, making functions from patterns:
+  sum = ($.foldl($ + $))
+
+  Sigils specify context:
+  $var = ...scalar...
+  @var = ...list...
+  %var = ...hash...
+  var = ...func...
+  var() calls var (?)
+
+  Two expression contexts: eval, define
+  When to eval? When all info is available?
+  How to refer to functions without arguments?
+  \-> we can just use $func, same as $_ inside func
+  \-> or _ = func, where '_' is the a sink
+  How to determine context of '.' expressions?
+  One obvious solution, $(x.y) syntax
+  Crazy idea, get rid of '.':
+      commands, lazy structures
+      classes, machines, protos, objects
+      dataflow inputs, outputs, push, pull
+  Other thoughts:
+      OS-level module symmetry (like Python)
+      \-> body of file is just another scope, dirs are as well
+      \-> a possible solution to __init__.py:
+              - there can be a __meta__ file that defines package/module/etc
+              - or spelled ~meta, but can collide with backup files, etc (emacs)
+
+  How about the \var: val, shorthand? Can it be used for aliasing, without eval? How does this differ from '=' ? Especially for define-context?
+
+  Crazy (or not) idea: use @ for clones, % for symbols, $ for commands:
+      @var.10  # 10th instance
+      %var.sym # get/set some symbol
+      $var.act # give it command
+  What about trees? Chaining problem again....
+- |-
+  @var is plural, but the question is whether the elements are superimposed (any
+  operation on @var happens simultaneously to each element) or a sequence.
+  For instance, what would ``f(@x)`` do, pass in @x to f, or each element
+  individually?
+  Parameters:
+      - Independent of query mechanism (->[1], ->{'hello'}, etc)
+      - Make intuitive sense (preferably to Perl programmers as well),
+      - Feel "natural"
+- |-
+  <sigil><ident> <query>
+  sigil can be one of $ for object, @ for list, % for table, or none for callable
+  !push @list
+  query can be
+
+  @list/[1,2,3]\(2*$x)::($x -> ())
+
+  list @> (2 * _)
+  list[1,2,3] @>.hello @>()
+  list[1,2,3] $> .pop()
+
+  dict{'hello', 'world'}
+
+  \{2*$x}::($x -> ())
+- |-
+  Investigate #multiple-inheritance for Newt, specifically the C3 mro
+  How does this fit with the #singleton #continuation model?
+  How does #inheritance even work there?
+- |-
+  modifying attributes of parent class in the body of child class
+
+  #vs python: you can't access names that haven't just been defined in the class body
+- |-
+  dynamically append to any class
+  investigate #ruby or #scala open/closed classes
+  lookup attributes in local context
+  #ex:
+  import MyClass from MyPackage
+  sub addition($self : MyClass ; $x, $y) { ... }
+  my $x : MyClass .= new () // whatever
+  addition($x; 1, 2)
+  // same as:
+  $x.::addition(1, 2)
+  #conflicts: what if 'addition' is already a symbol in X?
+  what does the mro look like then?
+  either current -> MyClass or mro(MyClass) -> current
+
+  maybe:
+  $x.::addition(1, 2)
+  ::addition meaning look up addition in current pkg
+- |-
+  should whole file be package/class ?
+  #ex:
+  addition($x; $y, $z) { $x.add($y, $z) }
+  my $val = addition(1, 2) // what's $x bound to ?
+- hash slices
+- Flatten stack-based program into continuations
+- |-
+  semantic markup language:
+  |   expressiveness of XML
+  |   simplicity of JSON
+  |   readability of YAML
+- |-
+  semantic expression of parenthetic info:
+  (note) stuff here... how does it end?
+  (note: stuff here... clear ending with closing paren)
+  problem with latter is nesting (vs flattened)
+- |-2
+
+  event -> action    # e.g. onClick -> doStuff
+  events vs hooks (i.e. pre- / post- hooks )
+  what "kind of thing" is an event?
+  How would you model javascript events in Newt?
+  i.e. what is 'onClick', etc, who produces the events
+  and does there need to be an event loop (e.g. AnyEvent),
+  or can events be more general?
+- |-
+  explicit env context passed to functions
+  in Perl5:
+  $\ = "\n"; $, = " ";
+  print('hello', 'world') # ==> print("hello world\n");
+  So maybe we can do something like:
+  print(OFS => " ", RS => "\n"; 'hello', 'world');
+  so we'd be using the argslist before the ; to modify the environment of the call
+- |-
+  setting context zones
+  _  maybe using parens: (* comment *) (Python| code )
+  _  maybe with blocks + tags:
+  |   \lang: Python { ... }
+  |   {\Python ... } # maybe using "switches"?
+  |   {\lang=Python ...} # switch alt
+  _ note: how does ':' colon operator work?
+  _ note: how do (block) labels work?
+- |-
+  cond syntax:
+  |   a ?? then !! else
+  maybe ?? can throw an exception, and !! can catch it (with short-circuit behavior)?
+  What if 'then' throws? same trouble as ||
+    Crazy idea, put exception details in between !!
+      !!? would only catch ? exception
+      conflict with ! 'not' operator?
+- |-
+  using '\' for named operators
+  let's say ! is logical negation, then
+  |   !$x == \not($x)
+- |-
+  execution contexts, $_, and self
+    what would call($self; args) mean?
+    aside: Go lets you push/defer actions onto the end of the current method.
+    So there is the execution context, which would be encapsulated in the function object
+      (let's say it's called $~)
+    And there's a sort-of dynamic variable 'self' or 'this' in OOP
+      (let's say that's called $self)
+    Back to call($self; args) ...
+      should every function have a tied $self? even module scoped?
+      What is the purpose of $self anyway? Usually the idea is, in OOP:
+  |   query - doesn't change object state, "accessor"
+  |   command - changes object state, "mutator"
+  |   $self - the object itself, which stores state
+      But $self does a little more that that, it allows you to reference methods on the current object.
+      In C++/Java, you can reference methods without "this",
+        but in Python "self" is used to keep the namespace clean
+      So, now you have a problem of, how are function calls resolved?
+        Are there functions and methods, or is everything a method, tied to some context upon execution?
+      side-note: how do postfix !? fit here?
+    aside: two way of looking at objects:
+  |   as structs - just a collection of data, which utilities for manipulating it ("data structure")
+  |   as machines - you pass in commands and make queries, no direct state manipulation
+      as machines, we want to call them like:
+  |   $mech->do_something( ... )    # parens for args
+  |   $mech->give_stats    # if no parens, then no args (no ambiguity)
+        no reason to refer to the function itself (maybe just wrap in lambda)
+      as data structures, we may need to have access to the data directly:
+  |   $struct::var    # do we need sigil? probably not, if 1-namespace
+  |   $struct::method    # does not get called, unless parens used (uncertain, may change)
+        note: what's the significance of $ sigil in $struct? are operators dependent of sigils?
+        alternative syntax:
+  |   $struct.var    # very intuitive,
+  |   $struct.method    # and doesn't call if no parens
+          a bit misleading, since it's very close wrt -> and carries a different meaning in C++ (ref vs stack)
+        aside: one possible use for '.' operator is with auto-quoting barewords; so:
+  |   $struct.var == $struct->'var' ?= $struct::var    # the final one is implementation-dependent
+          note: what's the best equivolent to Ruby's :symbols ?
+            One idea is to use <angled brackets>, which would also allow arbitrary chars
+            Previous idea was `using ticks`, but ideally we want something that can be used as prefix
+              thought about using \tag syntax, but this may limit the usefulness of '\'
+              maybe use common meta-quoting op?
+              maybe put . in front, obvious incompatibilities
+              using ':' like Ruby and Scheme isn't great because ':' can be more useful for "such that"
+                maybe \\ can be used for st, but how can st be related to envs?
+
+     aside: -> seems to be a general message (command/query) passing interface
+          possibly consistent in usage with collections
+- = vs == vs := confusion
+- |-
+  module-local customization of imported classes
+  For example, Menu class needs to be extended, with paginate_items method, so we add the paginate_items method to Menu, but only wrt code in one class. To do this, we should have a tool that will validate the changes to Menu wrt how the module sees it at import (more importantly, how the developer sees it). So the import rules should be simple/"obvious" and unsurprising, unlike Python's (especially wrt circular imports).
+- |-
+  classes as models / stateful objects
+  Could have central validation tool, like Django's syncdb, take care of open/close class modification conflicts during compilation, except program may not be written in *-topology.
+  Should investigate further, wrt Perl modules that do this
+- |-
+  Use # in comments for tags (like hash-tags)
+  #*
+      This function does #stuff with #things.
+  *#
+- |-
+  inline notes in code
+  only if can be made not ugly/intrusive
+- |-
+  unit types for values
+  like SI units
+  #example:
+    sugar => 1/2 : teaspoons,
+    salt    => 3.4 : grams,
+  special namespace?
+  converting between units effortlessly
+- |-
+  deciding on what to do with sigils...
+  some related concepts:
+    namespaces (2-namespace or 1-namespace)
+    how functions/methods work; dynamically bound methods
+    invariability (perl6) vs context-based sigils (perl5) vs scope (ruby)
+  #stub
+- |-
+  silly idea, labeled vectors:
+  my $arr = [ sugar => 1/2 : teaspoons, # generic types for units? at least SI...
+    salt => ... ]
+  $arr->{sugar} == 1/2
+  $arr->[0] == 1/2
+  $arr * 2.0 ~~ [ 1, ... ] # decide how to do this, since args for both ways...
+- |-
+  using OOP/namespaces to shorten variable names?
+    or at least somehow segment them
+  #stub
+- |-
+  superpositions (all, any, none) with match operator (~)
+  #stub
+- 'wrt unit types, can it be a generalization of literal types?'
+- |-
+  \labels
+  atomic units sent to the parser as tokens.
+  so maybe you can have a syntax to replace labels with operators?
+  |   10 \:op:plus 3 \:op:equals \:num:five
+  just made up the colon-syntax, but there are a number of trade-offs here to #investigate
+- |-
+  Why don't more languages have pseudo-hashes?
+  Ruby has something like that, using :symbols .
+  The idea is that you would have labels aliased to certain indices, and the compiler would know which limited set of labels (like ruby symbols) have been used in the hash, so you can never mistype the labels. How 'labels' work in Newt is a largely independent matter, but it might effect the usage.
+  Some ideas:
+  |   $phash->[\label]
+  |   $phash->[label]
+  |   $phash->{\label}
+  |   $phash->{label} # maybe only when phash is a pseudo-hash? we want to avoid this kind of surprising magic though. #dark_magic
+  #investigate
+- |-
+  importance of explicit predicate/mutator suffix:
+  |   flagged?  # obviously a predicate
+  |   flagged    # maybe list of all flagged?
+  |   flag!         # obviously mutator
+  follows scheme pattern borrowed by Ruby
+  maybe it's worth generalizing? For example, second example 'flagged' is ambiguous without reading spec, etc.
+    opposite extreme is hungarian notation
+    the idea would be to have it be symbolic
+      symbolic notation imposes own unique constraints
+        do constraints depend on specific choice of allowed suffixes?
+      no constraints on functions/"callables" that require explicit parens
+      question of how to deal with sigils still at large...
+  #sigils
+- '#investigate short-hand method of declaring lexical variables (rather than not declaring them at all, as in Ruby)'
+- |-
+  using labels for explicit scope/namespace
+  #example:
+  |   \outer: {
+  |       my $x = 3
+  |       \inner: {
+  |           my $x = 10
+  |           print \outer::$x + \inner::$x
+  |       }
+  |   }
+- |-
+  virtual namespaces, for disambiguating variable names
+  - not tied to scope
+  #example:
+  |   {
+  |       my $forestry~tree = 10
+  |       my $struct~tree = Tree(...)
+  |   }
+  essencially application-specific namespaces
+- |-
+  are space-sensitive blocks (like Python) more intuitive?
+    remember that uniformity is important too
+  intuitive wrt English informal list convention
+  might become more clear when looking into #contexts and #quoting
+- |-
+  #tuples could be used for cross-expansion, similar to pre{list,items}post in bash
+
+  also, tuples are compile-time resolved?
+  #stub
+- |-
+  how to systemically avoid long context-encoded variable names?
+  #example:
+  |   my $special_ns~(var1,var2,var3)
+  |   $special_ns~var3 = $special_ns~var1 + $special_ns~var2
+  |   # or use some kind of "using ns" block?
+- |-
+  use :switches with functions?
+  |   my :lazy $var = ...
+  how do functions read flags/env?
+  can try to generalize to 'env' concept to replace dynamic magic variables.
+  #stub #investigate
+- |-
+  use distributed mechanisms rather than centralized facilities
+  for instance, a local generic tool for thread synchronization is far more valuable and interoperable than something like Python's GIL (even if it were more sophisticated, a centralized facility limits how you can slice and rearange a program, especially when you have multiple languages involved).
+  So in a sense, Newt would provide mechanisms that integrate well with the language, but also allow e.g. embedding Newt in C without a runtime library.
+  OTOH, facilities like #garbage-collection can be very useful and afaik need to be central. #investigate
+- |-
+  can #garbage-collection interoperate with C modules?
+  how?
+  #stub #investigate
+- |-
+  semantic quotation
+  wrt pattern matching/grammers? (ie schema)
+  original thought: $<var name>
+- allow for lazy/data-driven variables like python @property
+- |-
+  #investigate sibling inheritance
+  e.g. white bread -> black bread
+  vs    bread -> {white,black} bread
+- |-
+  Small / Pawn #robust language
+  http://www.compuphase.com/pawn/pawnfeatures.htm#ROBUST
+- |-
+  inline test "notes" similar to assert statements
+  example:
+  |   my $x = actB(actA())
+  |   #?! $x < 255
+  |   # or something like:
+  |   my $y = actB(actA()) : < 255 # or maybe _ < 255
+  difference is whether tests are done at runtime or not?
+  how is it different than assert? assert is at runtime, but...
+  maybe you can dynamically generate tests from constraints?
+    basically have test inputs and outputs, and the inline tests would be additional tests
+  maybe also have inline asserts:
+      my $x = ...
+      #?: $x < 255
+- '#investigate using <> for grammar-related stuff?'
+- look at Rspec and Cucumber for specification/testing
+- automatic acronymn resolution + conflict checking
+- |-
+  it's nice how Python class attributes can be either declarations (def ...(): ... or class ...(): ...) or assignments ( ... = lambda : ... or ... = someMethod or ... = SomeClass).
+  For example:
+  |   class A (object):
+  |       class __metaclass__(type): ...
+  |       # same as
+  |       __metaclass__ = type(...)    # only specific to metaclasses
+  |       __unicode__ = lambda s: s.name
+  |       def __unicode__(self): ...
+  I only think that bound/unbound methods are strange; requiring @{static,class}method is unintuitive.
+  Strange kind of timtowtdi, for example:
+  |   @property
+  |   def x(): return 10
+  |   # same as
+  |   x = property(lambda: 10)
+  sure, lambda isn't flexible, but the simplicity/uniformity makes the language flexible without requiring a very flexible syntax (same deal with accessors, etc; especially for implementing lazy/data-driven variables, incredibly powerful for it's simplicity)
+- |-
+  #investigate @property vs explicit method calls in Newt
+  especially wrt:
+    lack of line terminator (;) or whitespace significance
+    sigils and 1vs2 namespace (get func object vs call func)
+- |-
+  in lua, objects are just hashes, and hashes are accessed using the dot (.) operator
+  what if we can make objects (as implemented in static languages) into pseudo-hashes (like slots in python)
+    where it uses the same interface as maps, but just as efficient as statically compiled objects.
+  where do #sigils come into play here?
+    if we allow hashes to be accessed using (.) operator, then:
+  |   %mapValue.key
+  |   # how does this compare to:
+  |   $mapValue.key
+  previously was planning on allowing this sort of syntax due to lack of ambiguity
+    % allows (.) to be used for accessing hashes, while $ indicates object attribute access
+  seems like a useless/bad idea to get rid of sigils /and/ allow dot to mean hash access
+  sane Python-esc alternative would be:
+  |   mapValue.keys    # accesses <keys> attribute
+  |   mapValue<key> #- or -# mapValue{'key'}    # accesses <key> key
+  #aside: where does this leave (->) operator? should it be purely for checking membership?
+  cool idea:
+  |   %setA > %setB     # asks if setA contains setB
+  |   $elemA <- %setA    # asks if elemA is in setA
+  real problem is the ambiguity of whether elemA should be a key of setA or value (if it's a hash), and whether it should be spelled @setA rather than %setA
+  we need a BETTER way to use sigils as metadata, rather than having it add confusion/ambiguity
+  best course would be to identify precisely what would be lost if sigils were removed, and whether that can be regained otherwise #investigate
+- |-
+  symbolic "new"?
+  |   ClassName::()
+  |   ClassName::~()
+  |   ClassName::new()
+  maybe have a "new" label?
+- |-
+  linear coroutines, which you can choose to enter at any point (maybe by label)
+    problem may be incomplete (uninitialized) environment/state
+  #investigate
+- |-
+  Python's "is not None" is nonsense!
+  maybe it can be realized more sanely by checking against abstract/lazy sets?
+  |   if $x <- Truth ?
+- |-
+  meta-dot, like getattr in Python,
+  opposite of hyper-operations in Perl6/Newt (like @list.action_gets_mapped vs $list.map(action...) )
+- |-
+  #style eliminating meaningless constants vs enums
+  |   ALPHA = "al"
+  |   BETA = "be"
+  |   # vs
+  |   ALPHA : unique
+  |   BETA   : unique
+  |   # or, more traditionally
+  |   enum {
+  |       ALPHA,
+  |       BETA,
+  |       ... ,
+  |   }
+- |-
+  how to avoid things like "do_<verb>" , "is_<noun>", etc?
+    this is done when a verb is also a relavent noun, and vise versa
+- |-
+  #investigate should language affect style?
+  especially wrt Python: block syntax style is somewhat different than inline generator style
+  biggest problem is wrapping in Python, which requires breaking indentation rules and using (\)
+- |-
+  anonymous sub syntax, #conflicts based on style
+  |   (a, b) {
+  |   } # vs
+  |   (a, b)
+  |   {
+  |   }
+  #aside: should all Newt syntax be whitespace-agnostic?
+- |-
+  behaviour vs type (i.e. duck typing)
+  #investigate efficiency tradeoffs
+    how much of it is fundamental
+- |-
+  use notion of "context" to optimize return storage
+    e.g. don't buffer map results if in void context
+  should there be a mechanism for code to detect context?
+    like wantarray in Perl5
+    how does this tie in with #sigils vs #types
+- 'a-la-carte inheritance, pull bits from different Classes'
+- |-
+  Prototype/Instance invarience:
+  |   struct X { .a => _, .b => _, .c => _ }
+  |   $x = X(.a => 20, .b => 30)
+  |   $y => $x(.c => 40)
+  So maybe we need "instance-of" operator instead of ()
+  also, this brings to question the function of #sigils
+    maybe "using" an object vs referencing it?
+      like X and x aren't "done", and hence can't be used (they have unbound parameters)
+      sort of like currying
+  |   X = \(x, y) { x + y }
+  |   x = X/(10) # == X(10, _)
+  |   $a = x/(5) == x(5)
+      note the fact that we can use arithmetic operators on non-sigiled objects, because they can't be numbers
+- 'crazy syntax idea: use (~) for approx??'
+- approx-equals operator for floating point
+- |-
+  polymorphic version number type, for example
+  |   # with binary, you have:
+  |   b00010110
+  |   # for version numbers, you can have:
+  |   v0.001 # or...
+  |   v0.0.1 # or...
+  |   v2009.3.12345
+  and it would somehow "know" what to do with the numbers
+    either it stores it as a simple tuple of numbers
+    or accepts metadata to specify schema
+- partial implementation / "left open" classes
+- |-
+  Expand upon python's __KEYWORD__ concept, more generalized...
+    how to handle the __init__.py case?
+  #investigate
+- |-
+  clean data/process seperation in code
+    in contrast to Python, where you do most things dynamically
+    compare to Perl, with __DATA__ section
+- |-
+  use labels as aliases:
+  |   my $x = 3
+  |   \x1: $x
+  |   \here: sub z { goto \here }
+  #conflicts with tags idea (for documentation, etc)?
+- |-
+  Hypertalk has a notion of the default "it" variable, similar to Perl's $_
+  #investigate utility of having a default variable
+  may be good for small blocks of code (REPLs, etc)
+  ideally would never have to say "it"
+    i.e. language-wide default, not just subs that choose to support it (unlike Perl5)
+  maybe have it be like octave's "ans" variable, either:
+    either value of last expression in void context or just the value of last expression
+    how would you refer to second to last expr, etc?
+      crazy idea: @_[-2]
+      you can also just not allow it, which may result in cleaner code (but not by choice)
+- |-
+  Hypertalk uses "me" for this/self object,
+    specifically the object (UI elem) that the script runs in
+  would be interesting to integrate notion of contexts into self, as in current "machine" or "structure"
+  |   machine stack {
+  |       sub pop ($stack;) { ... $stack ...}
+  |       # another syntax idea:
+  |       sub pop [$stack] { ... $stack ... }
+  |       # or extending the __SELF__ syntax
+  |       sub pop { ... __SELF__ ... }
+  |   }
+- |-
+  is the difference between sigils and barewords whether it has been instantiated or not?
+  in pythonic terms, if you have a function F and:
+  |   my $f = F()
+  then $f is analogous to a generator??
+- |-
+  crazy thought: type-based variable namespaces
+  prevents java naming cruft
+- |-
+  php-style templated output
+    except generalized to any output stream (whatever that means, #investigate output-stream)
+    but just as intuitive
+- |-
+  Literate-programming-like <multi-phrase identifiers>
+    possibly with the following abilities:
+      * shortest-prefix matching
+- |-
+  Topic: Perl quote operators
+  Perl's advanced quoting operators ( q, qq, qw, qx, etc ) are versatile and extremely useful at times. However, they
+- |-
+  Perl's str->int conversion may be handy in the following example:
+  |   for my $i (1..10) {
+  |       $i = "0$i" if $i < 10;
+  |       do_smth($i * 2);
+  |   }
+- |-
+  some examples inspired by Smalltalk and i3-config language:
+  |   $window.move(to: $loc)
+  |   move $window to $loc    # note the template-like expressiveness
+  |   .move $window; to: $loc
+  |   .move($window; to: $loc)
+  |   .move($window; to => $loc)
+  |   [ move $window to: $loc ]
+- |-
+  random thoughts:
+      * maybe ':' operator is more than for types, a general declarative op.
+        Some use-cases might be lists:
+  |   <a list of stuff>: (
+  |       a,
+  |       b,
+  |       c
+  |   )
+- |-
+  Check out Dylan [ http://www.gwydiondylan.org/learning.phtml ]
+  Similar motivations as Newt (flexibility, gradual optimization, etc)
+      * kinda cool convention, types are in <> (<int>)
+      * uses :: as type specifier (x :: <int>), seems unnecessarily redundant
+- |-
+  Is <ident> more meta than $ident? For example:
+  |   do $verb with $noun
+  |   # vs
+  |   do <verb> with <noun>
+  How does this apply to grammar-syntax usage?
+  Other uses for <brackets>:
+      * multi-word phrases (with possible prefix inference)
+      * types (like Java/C++ templates)
+  Simpler idea: allow any identifier to be either /
+- |-
+  Psychological effects of modes vs balanced operators (#investigate)
+  For example:
+  |   // this is a comment, forever
+  |   /* this is nested, clearly ends here */ another_stmt...
+  |   # some fake quoting operators:
+  |   qb:
+  |       * this quotes a block list
+  |       * etc
+  Some obvious issues:
+      * how to end block?
+      :-> the ugly way is python-like indentation sensitivity
+      '-x maybe just have an asymmetric terminator, like '.' or ';'
+        :-x for example:
+  |   block:
+  |       blah blah
+  |       blah blah blah
+  |   ;
+          :-> note how the ';' visually matches the ':'
+          '-> might conflict with multi-dim array syntax
+        '-> this basically just a here-doc, so it should be more general
+      * how to customize quoting operators?
+      :-> preferably part of more general mechanism (unlike in Perl)
+      '-> related to the problem of switching contexts seamlessly
+- common annoyance in Perl is de-indenting a block quote (#investigate)
+- |-
+  LINQ-like CRUD
+  * @ sigil is for collections, but how to deal with multi-dim data?
+  * % could be a "table", as in relational collection
+  * how to integrate constraint-scopes?
+  * how to map notion of relations (one-to-one, many-to-one, many-to-many) ; do we need keys?
+  Newt
+  functions can dispatch different actions depending on which parameter combos are used
+  for example, relative vs absolute (x_inc => ... vs x => ...) or polar vs rect
+      but what if they conflict (in naming)??
+  Newt
+  glob can be an inverted pattern, such that it lazy-generates all possible strings,
+          rather than matching a given string
+  so they should have the same syntax... is this always possible?
+  easiest case is char set ( [a-z][1-10] )
+- |-2
+
+  # In Haskell the '$' operator is used as a lower-precedence operator, to group
+  # the whole right side of the expression (like using 'and' vs '&&' in Perl)
+  >   f ( g ( 1 + 1 ) )
+  >   f $ g $ 1 + 1
+  # how else can we do this, without using the '$' operator?
+  # if ';' is used for grouping the closest nested function call
+  >   f g 1 + 1;;
+  # don't think this work for infix operators...
+  # we can just use infix '@' instead of '$':
+  >   f @ g @ 1 + 1
+  # or maybe something like heredocs, maybe related to quasiquoting
+- |-
+  $^var means $var from one scope above
+  $2^var means $var from two scopes above
+  $*var means find variable named 'var' in calling scope
+  $<var> means ($var)
+  $<$name> means find var with name eq $name
+  $*<$name> means find var with name eq $name in calling scope
+- |-
+  Some thoughts...
+  var $x = .new SomeType;
+  var $y = .new OtherType;
+  var $sym = .new
+  $.process .something
+  .add 1, 2;
+  1.add(2)
+  1.add 2;
+  .add(1, 2)
+  $this.add($blah)
+      _.subtract($bleh)
+      _.bluh
+  $ is `this
+  _ is `$_
+  var $hash = (
+      .1   => 2,
+  );
+  sub blah($x, @xs) {...}
+  sub blah($x, _@xs) {...}
+  sub blah($x, $xs) {...}
+  blah(1, 2, 3)
+  blah(1, (2, 3))
+  blah(1, [2, 3])
+
+  {1,2,3}{4..7} == ???
+  $x : [char*] = "hello world";
+  $x : [a..z]
+  {1..10} vs {1,10} vs [1..10] vs [1,10]
+  {} => set, [] => list?
+  1 | 2 | 3 | .. | 10 vs 1 , 2 , 3 , .. , 10
+  [ 1 ,, 10 ]
+  [ 'a' ,, 10 ]
+  'a'*{1,2,3}
+  'a'{1,2,3}
+  $x:Seq.cat output()
+
+  [xml| <hi></hi>]
+  {xml| xml.process}
+  \(xml){xml.process}
+  \(xml){xml.process}

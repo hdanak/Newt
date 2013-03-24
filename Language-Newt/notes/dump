@@ -1,0 +1,36 @@
+
+class AST {
+	field $root:AST_Frame:BST
+	field $current:AST_Frame 
+
+	method add_var_lexical ($name, $type, $var_class) {
+		$current.vars->{$name} = [$type, $var_class]
+	}
+
+	method add_var_global ($name, $var_class, $type, %attributes) {
+		$current.vars->{$name} = [$type, $var_class])
+		if $x < 3 {
+			print "x is less than 3. It is $x."
+		}
+		my $first_quote = "x is lt 3"
+		my $second_quote = "x is gte 3"
+		print $x < 3 ? $first_quote:String : $second_quote:String;
+	}
+
+	method add_sub_def ($name, %attributes, %param) {
+	}
+
+	class AST_Frame {
+		my field %hidden:HashMap = { x => 2 }
+		field $public
+	}
+}
+
+sub print_point ($loc:Point) {
+	my $coordinate:String = "($loc->x, $loc->y)"
+	$tree.nodes->{node1}->{node2}->[3].second_branch()->[5]
+}
+
+&{ $1 + $2 }
+($x, $y)->{ $x + $y }
+
