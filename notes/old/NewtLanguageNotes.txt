@@ -1,0 +1,231 @@
+﻿Newt Language Notes
+
+
+#==== Comments
+Comments start with a hash ‘#’ and go until the end of the line
+You can have multi-line comments with a ‘#* … *#’ pair, like this:
+#> #
+#> #* And so
+#>  * is this.
+#>  *#
+
+
+#= Variables
+Variables are containers for holding data, which in Newt consists of objects. Variables can have a type, which puts a constraint on (and tells the compiler how to treat) objects we can put in it, which by default is Object, the ancestor of all objects.
+
+
+#== Declaration
+Lexically-scoped variables are declared with ‘my’ followed by an optional type:
+#> my $x
+#> my Killer $x
+
+
+Global variables need to be defined at file-scope (outside any blocks) and use the ‘global’ keyword:
+#> global $x
+They are visible from any file that can import you, and are accessible like:
+#> PackageName::$x
+#--
+
+
+#== Container Classes and Sigils
+All variables in Newt have a sigil corresponding with their container class, which determines what kind of data it holds. This give us a convenient way to talk about variables according to how data is organized, rather than treating everything like objects.
+
+
+The three sigils in Newt are $ (called Items, for storing single units of data), @ (called Lists, for storing multiple units), and % (called Maps or Key-Value Pairs, for storing associative maps of data). These container classes correspond with the following roles: ItemContainer, ListContainer, and MapContainer. Variables have a single namespace, so you can change sigils to talk about the same data in a different way (but only if the data can play that role).
+
+
+#=== Items
+Items have a ‘$’ (like S in Scalar) sigil, and look like this:
+#> my $y = 10
+or
+#> my Type $x
+Where Type can be any interface or class. Types are explained in detail later.
+#---
+
+
+#=== Lists
+Lists have a ‘@’ (like A in array) sigil, and can hold any object that implements the ListContainer interface. All lists are ordered and indexed by number, starting with zero. The main kind of lists in Newt are ArrayLists, which expand dynamically when new items are added. You can make other kinds of lists by implementing ListContainer, which basically provides all the methods that map to the various bits of list syntax.
+
+
+You can make ArrayLists with square brackets ‘[]’:
+#> my @list = [1,2,3]
+
+
+You can access elements of a List using brackets after the variable name:
+#> @list[3] = 2
+
+
+To get the size of an array, put a ‘+’ before the sigil to treat it as a number:
+#> my $size = +@mylist
+
+
+To get a space-delimited string of the array, put a ‘~’ before the sigil to treat it as a string:
+#> $printable = ~@mylist
+This is the same as join(@mylist.string(), ‘ ’)
+
+
+Because an ArrayList is expanding, it is sometimes useful to ensure the size of a list. You can do this as follows:
+#> my @array[10]
+This actually does something like:
+#> my @array = ArrayList(10)
+
+
+Unlike most languages, dot notation for a list is different than scalars: in Newt, it actually maps the method over all the elements of the list:
+#> @array_of_objects.do_something()
+
+
+#==== List Comprehensions and Slices
+You can take slices of lists like this:
+#> @array[1..30]
+or
+#> @array[1,5]
+or
+#> @array[1..10,20..30]
+#----
+#---
+
+
+#=== Key-Value Maps
+Key-value maps have a ‘%’ (like Perl hashes) sigil, and look like this:
+#> my %hash = (homework => 3, schoolwork => 2)
+
+
+Access a hash like this:
+#> %hash[‘name’] = ‘blah’
+barewords in the hash key get quoted automatically, so this is the same:
+#> %hash[name] = ‘blah’
+Note that keys can only be Strings (numbers are autoquoted).
+
+
+You can also slice hashes:
+#> my @arr = %hash[a, b, c]
+
+
+Sets are unordered, and are made with curly braces ‘{}’:
+#> my %fruits = {“orangle”, “apples”, “grapes”}
+
+
+Note that Sets auto-flatten, so these are the same:
+#> my %set = {1, 2, 3}
+#> my %set = {1, {2, 3}}
+
+
+#---
+
+
+All data in Newt are objects. Even primitive types, which map directly to hardware, and start with a lowercase, are technically objects with native implementation. These include int8/16/32/64, uint8/16/32/64, float, double. Otherwise Types are either Classes or Interfaces. Unlike Perl6, we don’t have “Magic” types, so while this may work:
+#> my $x = “34”
+#> my $y = $x + 8
+It is only because the String class implements the Number interface.
+
+
+Variables that haven’t been assigned to objects have an ‘undef’ value, which is largely TBD.
+
+
+#= Strings
+Strings start with a single-quote for the non-interpolating form, and double quote for the interpolating form:
+#> ‘this is a literal string’
+#> “$this will get substituted out\n”
+
+
+Strings can span multiple lines. Note that escaped characters only work in the interpolating form.
+
+
+Using backticks with not create strings, but rather execute a shell command (it does interpolate variables).
+
+
+You can quote things without using the quotation mark with the percent sign ‘%’:
+#> %{This is a noninterpolating string.}
+#> %/So is this./
+
+
+You can use ‘%%’ to interpolate, ‘%`’ to make a backticked string (for executing shell commands), ‘%@’ to make an array out of space-delimited lists, as follows:
+#> %%{String $here}
+#> %`{echo “hello $world”}
+#> %@{a b c d}
+#-
+
+
+
+
+#-
+
+
+#= Subroutines
+You can define subroutines like this:
+#> sub hello ($p) {
+#>     return $p + 1
+#> }
+
+
+Note that this is pass-by reference, but read-only.
+
+
+The last expression in a subroutine is returned, and doesn’t need the return operator, nor a semicolon. You also don’t need a parameter list if you don’t need parameters. So this is valid:
+#> sub greet { “hello world” }
+This will return the string “hello world”.
+
+
+There is a special syntax for single-line subroutines aimed at making them easier to read:
+#> sub greet = “hello world”
+or
+#> sub greet ($who) = “hello $who”
+
+
+You can do specify arrays and hashes in the parameters list:
+#> sub hello ($x, @y) {
+#>      return @y[$x]
+#> }
+#> hello(1, [3,4,5])
+
+
+Variable-argument lists can be made by ‘flattening’ the array like this:
+#> sub hello ($first, _@rest) {
+#>      return ($first, @rest[0])
+#> }
+#> hello(1, 2, 3) # returns (1, 2)
+
+
+You can also flatten an array in other contexts:
+#> hello(_@args)
+This will essentially unpack the array.
+
+
+You can also take things out of arrays like this:
+#> sub hello (($first, _@rest)) { … }
+#> hello(@something)
+
+
+You can also do these things with vectors and dictionaries:
+#> sub hello (<$first, _^rest>) { … }
+#> sub hello ((a => $a, b => $b)) { … }
+
+
+You can have multiple subroutines with different variable lists, but they much be distinct in their formal parameters, rather than how they deal with the data that is passed in (so you can’t have multiple ones that take an array, even if one of them matches out the $first and _@rest).
+
+
+You can even have constants in the param list:
+#> sub fib (0) = 0
+#> sub fib (1) = 1
+#> sub fib ($n) = fib($n-1) + fib($n-2)
+#= Packages
+Packages are laid out by directory structure, with respect to the NEWT_INC environment variable (or some other TBD things) or the local directory with respect to the script location.
+
+
+To import a package:
+#> import Acme::DestroyWorld
+#> my $b = DestroyWorld::WorldDestroyer()
+
+
+or
+#> import Acme::DestroyWorld as DW
+#> my $b = DW::WorldDestroyer()
+
+
+or
+#> import Acme::DestryWorld[WorldDestroyer]
+#> my $b = WorldDestroyer()
+
+
+‘import’ basically pulls in a namespace by default. Note that interfaces are not automatically imported when you import classes.
+#-

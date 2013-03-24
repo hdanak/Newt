@@ -1,0 +1,83 @@
+﻿Keywords
+
+
+Variable Declaration: ‘my’, ‘our’, ‘field’
+Subroutines: ‘sub’, ‘method’, ‘func’, ‘coro’
+Packaging: ‘package’, ‘module’, ‘import’, ‘export’
+OOP: ‘class’, ‘spec’, ‘adapter’, ‘parent’
+Grammars: ‘grammar’, ‘rule’, ‘token’, ‘regex’, ‘plug’
+Misc: ‘undef’
+
+
+Quoting
+
+
+Interpolating:
+
+
+“” ``, Q, Q@, Q%, Q`
+
+
+Non-interpolating:
+
+
+‘’, q, q@, q%, q`
+
+
+Variables
+
+
+Scalars: $ident
+Lists: @ident
+Maps: %ident
+
+
+Groupings
+
+
+‘Smart’ Groupings:
+( … )
+Ordered List:
+[ … ]
+KV Lists:
+[ … => … ]
+Sets:
+{ … }
+KV Sets:
+{ … => … }
+
+
+Dot Notation
+
+
+Scalar Root: $ident.att.att.att (dots assume objects)
+List Root: @ident.att.att.att (dots use result value: list, map, then scalar)
+Map Root: %ident.att.att.att (dots use result value: map, list, then scalar)
+Arrow: @ident.att->att (treats result as object)
+Bang: $ident!msg (sends message to object, TBD)
+
+
+Types
+
+
+Adaptors: adaptor String $x ~> Number $y {}
+Casting: Type:$var
+Typedefs: type N = Number
+
+
+OOP
+
+
+Classes: class Ident : Interfaces {}
+Fields: field [Type] [+-][rw]$ident
+Method: method (ObjectType $self) Ident ( … ) [~> ReturnType [$return]] {}
+Parent: parent ParentType $super
+Constructor: init (...) {}
+
+
+List/Map Syntax
+
+
+Length: N:@list, N:%map
+String: S:@list, S:%map
+(N and S would be typedefs for Number and String)

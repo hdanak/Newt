@@ -1,0 +1,76 @@
+﻿Newt Roadmap
+
+
+0: Initial Development
+
+
+0.0.0 - 0.1.0: Purely interpreted and untyped, no optimizations.
+0.0.1:
+        Implement lexical variables and subs.
+0.0.2:
+        Anonymous subs and closures.
+0.0.3:
+        Control structures, Loops except ‘for’.
+0.0.4:
+        Classes, Objects (and singletons), and Interfaces.
+        # here’s a thought:
+        #        class X : Y, Z, A, B, C {
+        #                        Y, Z are classes, the rest are interfaces.
+        #                parent Y;
+        #                        so here you take Z’s interface but don’t take it as a parent.
+        #                        Should also be possible to have a parent, but not it’s interface
+        #        }
+0.0.5:
+        OOP Inheritance.
+
+
+0.1.0 - 0.2.0: Constraint-based Type System
+0.1.1:
+        Basic container constraints (type declarations, runtime type checks at assignment).
+0.1.2:
+        Tagging functional Subs to aid SSA pruning.
+        # A sub is functional if:
+        #        * it does not call non-functional subs
+        #        * it does not reference variables outside its scope
+0.1.3:
+        Subroutine param-modification analysis.
+        # See if a sub modifies any of its parameters, for SSA
+0.1.4:
+        Static Single Assignment (SSA) analysis, with type constraints
+        # include usage/param-modification as an assignment
+0.1.5:
+        Object Interface constraint analysis at each point in SSA form, especially params
+        # see what kind of objects can come in through a function’s parameters
+        # and what kind of things a sub can return
+0.1.6:
+        Prune the SSA tree for the sub.
+0.1.7:
+        # Case 1:
+        #        my $a = KnownObject()
+        #        my $b = someSub($a);
+        #                then we could try to ‘trickle’ what we know about $a into someSub
+#                to get additional constraint.
+        # Case 2:
+        #        my $a = stochastic();
+        #        my $b = someSub($a);
+        #                but what do we do here? no info is added here.
+        # Related:
+        #        my StrictType $b = someSub($unknown);
+        #        Potential Solution:
+        #                my $temp = someSub($unknown);
+        #                typeCheck($temp, StrictType) or die TypeError();
+        #                my $b = $temp;
+
+
+
+
+
+
+# notes:
+# things to remember:
+#        * function queues (this.push(lambda))
+#        * macros as partial eval
+…
+
+
+1: First (Basic) Feature-complete Language Release

@@ -1,0 +1,517 @@
+﻿Newt Tutorial and Notes
+
+
+#= Intro: Variables and Data
+
+
+#== Variables
+Variables are containers for holding data. There are four kinds of containers in Newt: Items, Lists, Dictionaries, and Vectors. One important difference in these is the multiplicity of the data. Items can hold one piece of data, while Lists can hold any amount of data. Dictionaries, on the other hand, store associations between pieces of data, much like a simple lookup table. Vectors are much like lists, but have a fixed length while Lists are allowed to grow as needed.
+
+
+#==== A Note on Data
+For now we will say that data consists of numbers and strings (which are stringed characters, or text), but later we will discuss a more general form of data called objects.
+
+
+For now, numbers are just 1, 2, 3.0, ⅘, etc., while strings look like something like ‘Hi, I’m a string.’. Other forms of strings also exist, and will be discussed further.
+#----
+
+
+#=== Items
+Items can hold a single piece of data, much like scalars in math. You can make an Item container as follows:
+:> my $x = 10
+
+
+Note the ‘$’ in front of x. This means that you want to create a scalar named ‘x’ ($ sorta looks like S for scalar). The ‘$’ symbol is known as a /sigil/, and all variables in Newt have one in front of them. This will make it simple to spot a variable in a complex expression.
+
+
+Also note the equal sign. This assigns the data from the expression on its right side, the /rvalue/, to the variable on its left side, the /lvalue/. So it puts the number 10 into the box called $x.
+
+
+You can make mathematical expressions with numbers, and store the result in a container. So:
+:> my $n = 4 + 5 * 6
+
+
+which is evaluated in the regular order of operations to 34 (more numerical operators will be discussed in later). You can also put in variables as values in the expression, if they contain numbers:
+:> my $x = 2
+:> my $y = 3
+:> my $z = $x * $y    # multiply $x and $y, and put it in $z
+
+
+Notice the text following the semicolon, starting with a hash ‘#’. This is a /comment/, which is text that is completely ignored, and is for humans to read. This type of comment starts at the ‘#’ and ends at the end of the line. There is another type of comment with both a start and end point, so you can span multiple lines with text without affecting the program:
+ #* This is a single line comment *#
+ #* But it can just as easily
+    span multiple lines.
+  *#
+ #* 
+  * Some may find it nice to continue
+  * the stars ‘*’ all the way through.
+  *#
+ my $t = 13
+
+
+Strings work similarly, you can do:
+
+
+#> my $name = ‘zed’
+
+
+This will put the string ‘zed’ in the $name container. We will see how to manipulate strings and numbers later.
+
+
+You can also make Items without putting anything into them:
+
+
+#> my $item
+
+
+and then put something in there later:
+
+
+#> $item = ‘junk stuff’
+
+
+#---
+
+
+#=== Subroutines
+Say you have a bit of computation that you want to perform, given some inputs. You can repeat the code with the expression, but you’d have to change the variables by hand to match the situation each time. A better way is to use a \i{subroutine}, which is like a list of instructions, usually producing a value that is returned to the expression. For example:
+#> sub double ($n) {
+#>      return 2 * $n
+#> }
+#> my $x = double(10)
+#> my $y = double($x)
+
+
+
+
+#=== Lists
+Lists are multiple items in a row. These are like ArrayLists in Java, rather than linked lists. So you can usually add to it without much penalty, but inserting in the middle is expensive. Also, you have constant-time access like an array.
+
+
+#> @a = [1, 2, 3, 4]
+#> @a[0] = 5
+
+
+#~~~
+real_code_here()
+#~~~
+
+
+#--
+
+
+#== Hashes
+Hashes are key-value maps. They are like Perl hashes, Python’s unordered dictionaries, or Java HashMaps.
+
+
+#> my %animal_count = (cats => 3, dogs => 2)
+#> %animal_count[cats] = 4
+
+
+#--
+
+
+#== Dictionaries
+Dictionaries are ordered key-value maps, ordered by when they were last inserted (for example, if they were deleted). They are like Python’s ordered dictionaries, or Java LinkedtHashMaps.
+
+
+#> my %animal_count = (cats => 3, dogs => 2)
+#> %animal_count[cats] = 4
+
+
+#--
+
+
+#== Vectors
+Vectors are a fixed-size array of items, sort-of like tuples.
+
+
+#> my ^v = <1, 2>
+
+
+#--
+#-
+#=== Objects
+Data is organized into objects, in the simple OOP sense: clusters of data with bound methods. While object-oriented programming will be discussed in detail in later sections, for now we will iEvery piece of \i{data} is an object, but containers of data, variables, are not.
+
+
+#= Subroutines
+#-
+
+
+sub A () {
+        return stuff()
+}
+
+
+# perl/haskell-like pattern matching:
+sub B (($car, _@cdr)) {
+        # this is similar to Haskell’s x:xs matching
+}
+my ^v = <1, <2, <3, <>>>>
+B(^v)
+
+
+sub C (<$x, $y>) { … }
+C(<1,2>)
+
+
+# anonymous subs:
+sub ($a, $b) { }
+sub ($a, $b) = stmt
+# or:
+sub ($a, $b) = { stuff() }
+# (but why would you want to do THAT??)
+# but will probably get unwrapped (inlined) during compilation
+
+
+my $subroutine = another_sub
+
+
+# nice syntax like haskell
+sub fib (0) = 0
+# or sub fib (0) = return 0
+sub fib (1) = 1
+sub fib ($n) = fib($n-1) + fib($n-2)
+
+
+# functional stuff:
+# automatically detected as no side-effects function (same as sub :func)
+sub thing ($x) { … }
+
+
+# doing this throws an error if it isn’t a function
+sub :func thingy ($x) { … }
+
+
+my @doubles = map(-> $x { $x * 2 }, @array)
+my @sorted = sort(-> $a, $b { $a < $b }, @array)
+# or with _ placeholder
+my @doubles = map({ _ * 2 }, @array)
+my @sorted = sort({ _ < _ }, @array)
+# or maybe we should use \ like haskell
+my @doubles = map(\$x { $x * 2 }, @array)
+my @sorted = sort(\$a, $b { $a < $b }, @array)
+# or better yet, just
+my @sorted = sort(<, @array);
+sort(<, @array)
+
+
+map(func_or_sub, @array) # note that this depends on sub signature
+
+
+# fold or reduce? fold is better i think
+foldr(+, @array)
+foldl(+, @array)
+reduce(+, @array)
+
+
+# reduce shown do something cool, like split the list in half
+# and parallelize the reduce from right and left (but only if
+# your function is commutative
+
+
+# infinite lists??
+
+
+# because fib is a recursive function, you can do this:
+sub fib (0) = 0
+sub fib (1) = 1
+sub fib ($n) = fib($n-1) + fib($n-2)
+
+
+
+
+# ‘global’ makes a global variable:
+global $y # needs to be at file scope
+
+
+if $x {
+        # stuff
+} else {
+        # other stuff
+}
+# for single-line conditionals, you need parens around the condition
+if ($x) stuff()
+# more likely we’ll do it like perl5:
+stuff() if $x
+
+
+## Loops:
+
+
+# pre-check loops:
+while $x < 2 {
+}
+
+
+until $x < 2 {
+}
+
+
+# post-check loops:
+loop {
+        …
+} while $x < 2
+
+
+loop {
+        …
+} until $x < 2
+
+
+# loops forever:
+loop {
+        # weeee...
+}
+
+
+# note: in general, leaving out parens in these situations means
+# empty parens, which means something special, not false
+
+
+# perl5-like for loops, basically foreach:
+for 1 .. 10 {
+        # do stuff with $_
+}
+
+
+for 1, 3 .. 10 {
+}
+
+
+# to make a lexically-scoped $x binding instead of $_
+for 1..10 -> $x {
+}
+
+
+# single-line blocks:
+for 1..10 -> $x
+        stmt
+
+
+# this works too
+say $_ for 1..10
+# or
+say $x for 1..10 -> $x
+
+
+## OOP:
+class <*T> Foo {
+# making fields, with getter/setter attributes
+        field                $stuff0 #public, only getter
+        field        :w        $stuff1 #public, only setter
+        field        :rw        $stuff2 #public, getter/setter
+        field                $stuff3 #private
+        field        :s        $ID = rand() # static variable
+
+
+creator {
+}
+        
+method do_bar {
+                # like perl5, ‘state’ variables are function-static vars
+                state $z = 0
+                $stuff0 = 3
+        }
+
+
+sub print_ID {
+                say “ID is $ID”        
+        }
+}
+# interfaces (call them roles?):
+interface Printable {
+        method str
+}
+
+
+my $baz = new Foo()
+$baz.do_bar()        # i don’t really like dot notation, but the pointy
+# block above sorta requires it to avoid ambiguity
+
+
+
+
+## Strings:
+say “hello” ~ “ world” # sorry, but this is necessary with OOP syntax
+
+
+
+
+Notes:
+
+
+# dummy C-like macros, but will look into better lisp-like macros later
+macro x (*a, *b) = *a + *b
+# or
+macro x (*a, *b) {
+        *a + *b
+}
+
+
+let *a = stuff(), *b = $x {
+}
+# or maybe
+{
+        …
+} where *a = stuff(), *b = $x
+# flatten blocks? reduce its lexical scope
+_{
+}
+
+
+## threads and coroutines
+# thread is sugaring of sub :thread
+thread doer ($x) { … }
+my $thr1 = doer($smthng);
+my @threads = map(doer, @some_list);
+# ^-- how do we implement this?
+
+
+# use sub :coro to enforce it
+sub counter {
+        my $start = 0;
+        loop {
+                yield $start++;
+        }
+}
+
+
+say counter(); # prints 0
+say counter(); # prints 1
+# there should also be a cool way to freeze the state and serialize
+
+
+# string interpolation
+%{ hehe } # don’t interpolate
+%%{ ha$ha } # interpolate
+%`{ls -la} # interpolate, and run it as a shell command
+%@{a list of words} # make an array literal
+
+
+# associativity:
+
+
+sub :infix :assoc left :chain transitive < ($a, $b) {
+        # native code
+}
+
+
+sub :infix :assoc(right) :chain(accumulative) ** ($a, $b) {
+        # native code
+}
+
+
+sub :returns
+
+
+# pushing, popping, shifting, unshifting:
+@array << $scalar
+@array >> $scalar
+$scalar << @array
+$scalar >> @array
+
+
+# constants, not macros:
+
+
+constant X = 1 2 3
+constant Y {
+        blocks too!
+}
+
+
+enum stuff {
+        X, Y
+}
+
+
+# inline subs, not macros:
+
+
+sub :inline silly_concat (*a, *b) {
+        *a ~ *b;
+}
+
+
+# and coders too
+
+
+coder supersuperClassClass (*a, $b) {
+        “class $b { field *a }”
+}
+
+
+# checkout/checkin for threads
+checkout($dog) # lock the $dog
+$dog.slaughter()
+checkin($dog) # frees the $dog
+
+
+# $! = error_no() in calling thread, for error checking
+leave error_no()
+
+
+# list comps:
+
+
+my @list = $x * $y st $x < 10 and $y > 30, $y <- (1..52), 
+
+
+
+
+## note on imports
+
+
+# Packages are by directory, e.g. Struct or Math
+# Modules are bundles.
+Struct::LinkedList is a module
+
+
+import Struct::LinkedList
+
+
+LinkedList::Node is a class, and is called in such a manner (not node)
+you could do this to get just node (or to call LinkedList::Node just Node):
+import Struct::LinkedList (Node);
+further,
+import Struct[LinkedList, OtherList];
+or
+import Struct (LinkedList, OtherList);
+or
+import Struct Q@/LinkedList/;
+
+
+
+
+# modules:
+Struct::List::LinkedList
+Struct::List::PackedVector
+Struct::Queue::PriorityQueue
+Struct::Tree::BinaryTree
+Struct::Tree::AVLTree
+Struct::Tree::RBTree
+Struct::Tree::BTree
+Struct::Tree::B+Tree
+Algorithm::NaiveBayes
+Algorithm::Graph::DFS
+Algorithm::Graph::BFS
+Util::Tie
+Util::Tie::File::Hash
+Util::Tie::File::Array
+Util::Tie::DBI
+Util::Serialize
+Util::Serialize::JSON
+Util::Serialize::XML
+Grammar # ‘plug’
+Grammar::JSON
+Grammar::XML
+Grammar::HTML
+Grammar::CSV
+Graphics
+Graphics::Dialog
+DBI::SQLite
+DBI::MySQL
+DBI::CSV
+DBI::Excel

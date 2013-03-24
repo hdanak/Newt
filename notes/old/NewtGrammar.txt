@@ -1,0 +1,59 @@
+﻿Newt Grammar
+
+
+grammar Newt::Grammar is HLL::Grammar;
+
+rule subroutine {
+        sub <attribute>* <bareword> <paramlist>?
+        [<full_block> | <naked_block>]
+}
+
+
+rule attribute {
+        \:<bareword> [<bareword> | <number>]?
+}
+
+
+rule full_block {
+        \{
+                [<stmt> | <anchored_structure>]*
+        \}
+}
+
+
+rule naked_block {
+        \= [<stmt> | <anchored_block>]
+}
+
+
+rule statement {
+[ <var_assignment>
+| <var_declaration>
+| <expression>
+| <return_stmt> ]
+‘;’ ?
+}
+
+
+rule expression {
+        [ <sub_call>
+        | <variable>
+        | <scalar_method_call>
+        | <list_method_call>
+| <num_expression> ]
+}
+
+
+rule sub_call {
+        <bareword> <list>
+}
+
+
+token bareword {
+        \w+
+}
+
+
+token number {
+        \d+
+}
